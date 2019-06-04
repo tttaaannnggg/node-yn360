@@ -5,6 +5,7 @@ const noble = require('@abandonware/noble');
 const genAccess = 1800;
 const ynLEDUUID='d104440b87cc';
 const ynServiceUUID = ['f000aa6004514000b000000000000000']
+const adressForWrites = 'D1:04:44:0B:87:CC';
 let ynPerp;
 const yn = {
   off: ()=> `AEEE00000056`,
@@ -27,9 +28,18 @@ function handleDiscover(perp){
 
 function handleConnect(err){
   console.log('connection established');
-  //console.log('checking ynPerp', ynPerp);
-  ynPerp.discoverServices(['180a'], (err, serv)=>{
-    console.log('services are', serv);
+  ynPerp.discoverAllServicesAndCharacteristics(handleServAndCharDiscov)
+}
+
+function handleServAndCharDiscov(err, serv,chars){
+  console.log('found services')
+  chars.forEach((item)=>{
+    item.properties.forEach((prop)=>{
+      if(prop === 'write'){
+        console.log('found it!');
+        console.log(item);
+      }
+    })
   })
 }
 
