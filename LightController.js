@@ -1,14 +1,16 @@
 const noble = require('@abandonware/noble');
 
-const Light = function(){
-  this.UUIDs={
+light = {
+  UUIDs:{
     led: 'd104440b87cc',
     service: ['f000aa6004514000b000000000000000'],
     chr: 'f000aa6104514000b000000000000000',
-  }
-  this.ynPerp = null;
-  this.ynChar = null;
-  this.lastMessage = {
+  },
+  mode: null,
+  vals: null,
+  ynPerp: null,
+  ynChar: null,
+  lastMessage: {
     mode: '',
     hex: null
   }
@@ -22,72 +24,76 @@ function toHexArr(str){
   return outArr;
 }
 
-Light.prototype.createMessage= function(mode, vals = [00,00,00]){
+light.createMessage= (mode, vals = [00,00,00])=>{
+  console.log('mode is', mode)
   switch(mode){
     case 'white':
-      this.lastMessage.hex = `AEAA01${vals[0]}${vals[1]}56`;
+      light.lastMessage.hex = `AEAA01${vals[0]}${vals[1]}56`;
+      break;
     case 'off':
-      this.lastMessage.hex = `AEEE00000056`;
+      light.lastMessage.hex = `AEEE00000056`;
+      break;
     case 'rgb':
-      this.lastMessage.hex = `AEA1${vals[0]}${vals[1]}${vals[2]}56`;
+      light.lastMessage.hex = `AEA1${vals[0]}${vals[1]}${vals[2]}56`;
+      break;
     case 'unknown':
-      this.lastMessage.hex = 'AE3300000056';
+      light.lastMessage.hex = 'AE3300000056';
+      break;
     default:
-      return console.log(`case ${mode} not recognized!`);
+      console.log(`case ${mode} not recognized!`);
   }
-  this.lastMessage.mode = mode;
-  this.lastMessage.hex = toHexArr(btMsg);
+  console.log('lastMessage is', light.lastMessage)
+  light.lastMessage.mode = mode;
+  light.lastMessage.hex = toHexArr(light.lastMessage.hex);
+  return light.lastMessage.hex
 }
 
-Light.prototype.handleDiscover = function(perp){
+light.handleDiscover = function(perp){
   console.log('found peripheral');
   console.log('perp name is', perp.advertisement.localName);
   if(perp.advertisement.localName === 'YONGNUO LED'){
-    this.ynPerp = perp;
+    light.ynPerp = perp;
     console.log('found YN360');
-    console.log('checking if we have handleConnect', this.handleConnect);
-    perp.connect(this.handleConnect)
+    perp.connect(light.handleConnect)
   }
 }
-Light.prototype.handleConnect = function(err){
-  console.log('this is', this.ynPerp);
+
+light.handleConnect = function(err){
   console.log('connection established');
-  console.log('checking if we have cb, ', this.handleServAndCharDiscov);
-  this.ynPerp.discoverAllServicesAndCharacteristics(this.handleServAndCharDiscov)
+  light.ynPerp.discoverAllServicesAndCharacteristics(light.handleServAndCharDiscov)
 }
 
-Light.prototype.handleServAndCharDiscov = function(err, serv,chars){
+light.handleServAndCharDiscov = function(err, serv,chars){
   console.log('found services and characteristics')
-  console.log(this.UUIDs.chr)
+  console.log(light.UUIDs.chr)
   chars.forEach((item)=>{
-    if (item.uuid === this.UUIDs.chr){
-      this.ynChar = item;
+    if (item.uuid === light.UUIDs.chr){
+      light.ynChar = item;
       console.log('attempting to send buffer!');
-      item.read(handleRead);
+      item.read(light.handleRead);
     }
   })
 }
 
-Light.prototype.handleRead = function(err, data){
+light.handleRead = function(err, data){
   console.log('handleRead data is:', JSON.stringify(data));
-  this.lastMessage.buf = Buffer.from(this.createMessage(mode, vals));
-  console.log('changed to', this.lastMesssage.buf);
-  this.ynChar.write(this.lastMessage.buf, true, function(err){
+  light.lastMessage.buf = Buffer.from(light.createMessage(light.mode, light.vals));
+  console.log('changed to', light.lastMessage.buf);
+  light.ynChar.write(light.lastMessage.buf, true, function(err){
     console.log('error when sending buffer', err);
   });
 }
 
-Light.prototype.sendWrite = function(mode, vals = [00,00,00]){
+light.sendWrite = function(mode, vals = [00,00,00]){
+  light.mode = mode;
+  light.vals = vals;
   console.log('beginning send')
-  noble.on('discover', this.handleDiscover);
-  noble.startScanning(this.UUIDs.service);
+  noble.on('discover', light.handleDiscover);
+  noble.startScanning(light.UUIDs.service);
   noble.on('scanStop',()=>{
     console.log('scan is over');
   })
 }
 
-const light = new Light();
-
-light.sendWrite('off', [99,99]);
-
+light.sendWrite('white', [00,99]);
 
