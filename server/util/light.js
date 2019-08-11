@@ -1,6 +1,6 @@
 const noble = require('@abandonware/noble');
 
-light = {
+const light = {
   UUIDs:{
     led: 'd104440b87cc',
     service: ['f000aa6004514000b000000000000000'],
@@ -84,16 +84,29 @@ light.handleRead = function(err, data){
   });
 }
 
-light.sendWrite = function(mode, vals = [00,00,00]){
-  light.mode = mode;
-  light.vals = vals;
+light.sendWrite = function(options = {mode:'rgb', vals:[00,00,00]}, cb){
+  [light.mode, light.vals] = [options.mode, options.vals];
   console.log('beginning send')
   noble.on('discover', light.handleDiscover);
   noble.startScanning(light.UUIDs.service);
-  noble.on('scanStop',()=>{
+  noble.on('scanStop', (err)=>{
     console.log('scan is over');
+    return cb(err, light.getState());
   })
+}
+
+light.getState = function(){
+  const {UUIDs, mode, vals, ynPerp, ynChar, lastMessage} = light;
+  return {
+    UUIDs,
+    mode,
+    vals,
+    ynPerp,
+    ynChar,
+    lastMessage
+  }:
 }
 
 light.sendWrite('white', [00,99]);
 
+module.exports = light;
