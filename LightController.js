@@ -1,5 +1,10 @@
+//importing noble
 const noble = require('@abandonware/noble');
 
+//light will be an object that hangs on to all
+//data that we want to persist clientside
+//which is related to the light
+//the UUIDs prop is hardcoded with values corresponding to the YN360
 light = {
   UUIDs:{
     led: 'd104440b87cc',
@@ -16,6 +21,8 @@ light = {
   }
 }
 
+//converts a hex string to an array of hex values (ints)
+//in order to send over BLE and be read by the YN-360
 function toHexArr(str){
   const outArr = [];
   for(let i = 0; i < str.length; i+=2){
@@ -24,6 +31,12 @@ function toHexArr(str){
   return outArr;
 }
 
+//takes in a 'mode' and arr of values
+//generates hexadecimal strings that will be parsed to hex arrays
+//and sent over to the YN360
+//valid modes are 'white', 'off', and 'rgb'
+// the unknown mode is a feature that's available on the YN-360 hardware
+// but we don't know what it does.
 light.createMessage= (mode, vals = [00,00,00])=>{
   console.log('mode is', mode)
   switch(mode){
