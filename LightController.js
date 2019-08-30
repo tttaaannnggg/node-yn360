@@ -42,12 +42,27 @@ light.createMessage= (mode, vals = [00,00,00])=>{
     default:
       console.log(`case ${mode} not recognized!`);
   }
-  console.log('lastMessage is', light.lastMessage)
   light.lastMessage.mode = mode;
   light.lastMessage.hex = toHexArr(light.lastMessage.hex);
   return light.lastMessage.hex
 }
 
+//sendwrite kicks off the chain of callbacks
+light.sendWrite = function(mode, vals = [00,00,00]){
+  light.mode = mode;
+  light.vals = vals;
+  console.log('beginning send')
+  noble.on('discover', light.handleDiscover);
+  noble.startScanning(light.UUIDs.service);
+  noble.on('scanStop',()=>{
+    console.log('scan is over');
+  })
+}
+
+//event listener once you find a BLE device
+//if it's a YN LED, you connect 
+//then save the perp that you're getting via DI from noble.on
+//then fire off to the next CB by connecting to the peripheral
 light.handleDiscover = function(perp){
   console.log('found peripheral');
   console.log('perp name is', perp.advertisement.localName);
@@ -58,11 +73,18 @@ light.handleDiscover = function(perp){
   }
 }
 
+//once you've decided to connect
+//it grabs the peripheral from the saved dependency
+//then it discovers all services and characteristics on that peripheral
+//firing off the next callback once it does
 light.handleConnect = function(err){
   console.log('connection established');
   light.ynPerp.discoverAllServicesAndCharacteristics(light.handleServAndCharDiscov)
 }
 
+//here, services and characteristics are injected
+//we're gonna look at all of the characteristics
+//then try to read that characteristic
 light.handleServAndCharDiscov = function(err, serv,chars){
   console.log('found services and characteristics')
   console.log(light.UUIDs.chr)
@@ -75,24 +97,20 @@ light.handleServAndCharDiscov = function(err, serv,chars){
   })
 }
 
+//once we're reading the characteristic, we'll save its value
+//then we'll use createMessage to create an array of hex values
+//finally sending it using write, which is provided from the peripheral
 light.handleRead = function(err, data){
   console.log('handleRead data is:', JSON.stringify(data));
   light.lastMessage.buf = Buffer.from(light.createMessage(light.mode, light.vals));
   console.log('changed to', light.lastMessage.buf);
   light.ynChar.write(light.lastMessage.buf, true, function(err){
-    console.log('error when sending buffer', err);
+    if(err){
+      console.log('error when sending buffer', err);
+    } else{
+      console.log('finished writing!')
+    }
   });
-}
-
-light.sendWrite = function(mode, vals = [00,00,00]){
-  light.mode = mode;
-  light.vals = vals;
-  console.log('beginning send')
-  noble.on('discover', light.handleDiscover);
-  noble.startScanning(light.UUIDs.service);
-  noble.on('scanStop',()=>{
-    console.log('scan is over');
-  })
 }
 
 light.sendWrite('white', [00,99]);
