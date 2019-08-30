@@ -5,7 +5,7 @@ const noble = require('@abandonware/noble');
 //data that we want to persist clientside
 //which is related to the light
 //the UUIDs prop is hardcoded with values corresponding to the YN360
-light = {
+const light = {
   UUIDs:{
     led: 'd104440b87cc',
     service: ['f000aa6004514000b000000000000000'],
@@ -97,7 +97,7 @@ light.handleConnect = function(err){
 
 //here, services and characteristics are injected
 //we're gonna look at all of the characteristics
-//then try to read that characteristic
+//once we find a matching UUID, we generate a buffer and write it to the light
 light.handleServAndCharDiscov = function(err, serv,chars){
   console.log('found services and characteristics')
   console.log(light.UUIDs.chr)
@@ -105,26 +105,22 @@ light.handleServAndCharDiscov = function(err, serv,chars){
     if (item.uuid === light.UUIDs.chr){
       light.ynChar = item;
       console.log('attempting to send buffer!');
-      item.read(light.handleRead);
-    }
-  })
-}
-
-//once we're reading the characteristic, we'll save its value
-//then we'll use createMessage to create an array of hex values
-//finally sending it using write, which is provided from the peripheral
-light.handleRead = function(err, data){
-  console.log('handleRead data is:', JSON.stringify(data));
-  light.lastMessage.buf = Buffer.from(light.createMessage(light.mode, light.vals));
-  console.log('changed to', light.lastMessage.buf);
-  light.ynChar.write(light.lastMessage.buf, true, function(err){
-    if(err){
-      console.log('error when sending buffer', err);
-    } else{
-      console.log('finished writing!')
+      light.lastMessage.buf = Buffer.from(light.createMessage(light.mode, light.vals));
+      console.log('changed to', light.lastMessage.buf);
+      light.ynChar.write(light.lastMessage.buf, true, light.handleWrite);
     }
   });
 }
 
+// just catches errors at the end
+light.handleWrite = function(err){
+  if(err){
+    console.log('error when sending buffer', err);
+  }else{
+    console.log('finished writing!')
+  }
+}
+
 light.sendWrite('white', [00,99]);
 
+module.exports = light;
