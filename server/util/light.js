@@ -6,7 +6,7 @@ const noble = require('@abandonware/noble');
 //which is related to the light
 //the UUIDs prop is hardcoded with values corresponding to the YN360
 const light = {
-  UUIDs:{
+  UUIDs: {
     led: 'd104440b87cc',
     service: ['f000aa6004514000b000000000000000'],
     chr: 'f000aa6104514000b000000000000000',
@@ -17,16 +17,16 @@ const light = {
   ynChar: null,
   lastMessage: {
     mode: '',
-    hex: null
-  }
-}
+    hex: null,
+  },
+};
 
 //converts a hex string to an array of hex values (ints)
 //in order to send over BLE and be read by the YN-360
-function toHexArr(str){
+function toHexArr(str) {
   const outArr = [];
-  for(let i = 0; i < str.length; i+=2){
-    outArr.push(parseInt(str.slice(0,i+2), 16));
+  for (let i = 0; i < str.length; i += 2) {
+    outArr.push(parseInt(str.slice(0, i + 2), 16));
   }
   return outArr;
 }
@@ -37,9 +37,9 @@ function toHexArr(str){
 //valid modes are 'white', 'off', and 'rgb'
 // the unknown mode is a feature that's available on the YN-360 hardware
 // but we don't know what it does.
-light.createMessage= (mode, vals = [00,00,00])=>{
-  console.log('mode is', mode)
-  switch(mode){
+light.createMessage = (mode, vals = [00, 00, 00]) => {
+  console.log('mode is', mode);
+  switch (mode) {
     case 'white':
       light.lastMessage.hex = `AEAA01${vals[0]}${vals[1]}56`;
       break;
@@ -57,70 +57,73 @@ light.createMessage= (mode, vals = [00,00,00])=>{
   }
   light.lastMessage.mode = mode;
   light.lastMessage.hex = toHexArr(light.lastMessage.hex);
-  return light.lastMessage.hex
-}
+  return light.lastMessage.hex;
+};
 
 //sendwrite kicks off the chain of callbacks
-light.sendWrite = function(mode, vals = [00,00,00]){
+light.sendWrite = function(mode, vals = [00, 00, 00]) {
   light.mode = mode;
   light.vals = vals;
-  console.log('beginning send')
+  console.log('beginning send');
   noble.on('discover', light.handleDiscover);
   noble.startScanning(light.UUIDs.service);
-  noble.on('scanStop',()=>{
+  noble.on('scanStop', () => {
     console.log('scan is over');
-  })
-}
+  });
+};
 
 //event listener once you find a BLE device
-//if it's a YN LED, you connect 
+//if it's a YN LED, you connect
 //then save the perp that you're getting via DI from noble.on
 //then fire off to the next CB by connecting to the peripheral
-light.handleDiscover = function(perp){
+light.handleDiscover = function(perp) {
   console.log('found peripheral');
   console.log('perp name is', perp.advertisement.localName);
-  if(perp.advertisement.localName === 'YONGNUO LED'){
+  if (perp.advertisement.localName === 'YONGNUO LED') {
     light.ynPerp = perp;
     console.log('found YN360');
-    perp.connect(light.handleConnect)
+    perp.connect(light.handleConnect);
   }
-}
+};
 
 //once you've decided to connect
 //it grabs the peripheral from the saved dependency
 //then it discovers all services and characteristics on that peripheral
 //firing off the next callback once it does
-light.handleConnect = function(err){
+light.handleConnect = function(err) {
   console.log('connection established');
-  light.ynPerp.discoverAllServicesAndCharacteristics(light.handleServAndCharDiscov)
-}
+  light.ynPerp.discoverAllServicesAndCharacteristics(
+    light.handleServAndCharDiscov,
+  );
+};
 
 //here, services and characteristics are injected
 //we're gonna look at all of the characteristics
 //once we find a matching UUID, we generate a buffer and write it to the light
-light.handleServAndCharDiscov = function(err, serv,chars){
-  console.log('found services and characteristics')
-  console.log(light.UUIDs.chr)
-  chars.forEach((item)=>{
-    if (item.uuid === light.UUIDs.chr){
+light.handleServAndCharDiscov = function(err, serv, chars) {
+  console.log('found services and characteristics');
+  chars.forEach(item => {
+    if (item.uuid === light.UUIDs.chr) {
       light.ynChar = item;
       console.log('attempting to send buffer!');
-      light.lastMessage.buf = Buffer.from(light.createMessage(light.mode, light.vals));
+      light.lastMessage.buf = Buffer.from(
+        light.createMessage(light.mode, light.vals),
+      );
       console.log('changed to', light.lastMessage.buf);
       light.ynChar.write(light.lastMessage.buf, true, light.handleWrite);
     }
   });
-}
+};
 
 // just catches errors at the end
-light.handleWrite = function(err){
-  if(err){
+light.handleWrite = function(err) {
+  if (err) {
     console.log('error when sending buffer', err);
-  }else{
-    console.log('finished writing!')
+  } else {
+    console.log('finished writing!');
   }
-}
+};
 
-light.sendWrite('white', [00,99]);
+light.sendWrite('rgb',[99,25,99]);
 
 module.exports = light;
